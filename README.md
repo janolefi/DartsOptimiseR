@@ -1,5 +1,5 @@
 
-# {DartsOptimiseR} <img src="Darts_logo.png" align="right" height=170>
+# {DartsOptimiseR} <img src="Darts_logo.png" align="right" height=220>
 
 Me and my uni-friends recently started playing darts. As we are quite
 bad (i.e. our throws have a large standard deviation) we asked ourselves

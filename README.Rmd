@@ -12,7 +12,7 @@ knitr::opts_chunk$set(
 )
 ```
 
-# {DartsOptimiseR} <img src="Darts_logo.png" align="right" height=170>
+# {DartsOptimiseR} <img src="Darts_logo.png" align="right" height=220>
 
 Me and my uni-friends recently started playing darts. As we are quite bad (i.e. our throws have a large standard deviation) we asked ourselves if it is better to aim at the bullseye or triple twenty. Then generalised the question even more: Given your skill level, what target should you choose to maximise your expected points on three darts?
 
