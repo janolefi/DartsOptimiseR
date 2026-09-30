@@ -41,18 +41,10 @@ Optionally, the app also accounts for **aiming bias**: if your darts
 land, say, 15 mm left of where you aim on average, the optimal target is
 shifted to compensate. This can be switched off.
 
-<figure>
-<img src="DartsClassroom.jpg" alt="Classroom app" />
-<figcaption aria-hidden="true">Classroom app</figcaption>
-</figure>
+![](DartsClassroom.jpg)
 
-## Original app
+<!-- ## Original app -->
 
-The original, simpler app lives in [`app.R`](app.R): enter your throws
-and get the heatmap of the optimal target. See it
-[here](https://janoleko.shinyapps.io/DartsOptimizeR/).
+<!-- The original, simpler app lives in [`app.R`](app.R): enter your throws and get the heatmap of the optimal target. See it [here](https://janoleko.shinyapps.io/DartsOptimizeR/). -->
 
-<figure>
-<img src="DartsOptimizeR.jpg" alt="darts" />
-<figcaption aria-hidden="true">darts</figcaption>
-</figure>
+<!-- ![darts](DartsOptimizeR.jpg) -->
