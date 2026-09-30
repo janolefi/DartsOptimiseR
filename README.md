@@ -24,7 +24,7 @@ locally, which is noticeably faster:
 
 ``` r
 install.packages(c("shiny", "bslib"))
-shiny::runGitHub("DartsOptimizeR", "janolefi", subdir = "classroom")
+shiny::runGitHub("DartsOptimiseR", "janolefi", subdir = "classroom")
 ```
 
 It works in three steps:

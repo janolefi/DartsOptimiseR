@@ -26,7 +26,7 @@ Try it [online](https://janoleko.shinyapps.io/Darts2/), or run it locally, which
 
 ```r
 install.packages(c("shiny", "bslib"))
-shiny::runGitHub("DartsOptimizeR", "janolefi", subdir = "classroom")
+shiny::runGitHub("DartsOptimiseR", "janolefi", subdir = "classroom")
 ```
 
 It works in three steps:

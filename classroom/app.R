@@ -275,7 +275,7 @@ css <- paste0(":root {", paste0("--", names(COL), ": ", COL, ";", collapse = " "
 
 ui <- page_sidebar(
   title = div(class = "app-title", span(class = "dot"), "Darts", span(class = "light", "Optimiser")),
-  window_title = "DartsOptimizeR - Classroom",
+  window_title = "DartsOptimiseR - Classroom",
   theme = theme,
   fillable = FALSE,
   tags$head(
