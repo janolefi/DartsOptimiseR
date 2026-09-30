@@ -205,6 +205,60 @@ emptyThrows = function(){
              located = logical(0), score = numeric(0), label = character(0))
 }
 
+# Class results -----------------------------------------------------------------
+# One row per group: averages per 3 darts in both rounds.
+
+emptyClass = function(){
+  data.frame(group = integer(0), darts = integer(0), round1 = numeric(0), round2 = numeric(0),
+             change = numeric(0), optimal_aim = character(0), bias = logical(0))
+}
+
+# t-test that never errors (e.g. constant data), NULL if not possible
+safeTest = function(...) tryCatch(t.test(...), error = function(e) NULL)
+
+formatP = function(p) if(p < 0.001) "p < 0.001" else sprintf("p = %.3f", p)
+
+# one line per group from round 1 to round 2, plus the class mean
+drawSlopes = function(cls){
+  par(mar = c(2.6, 4.2, 1, 5.5), bg = "transparent", col.axis = COL$muted, fg = COL$border)
+  yl <- range(c(cls$round1, cls$round2))
+  yl <- yl + c(-1, 1) * max(2, 0.08 * diff(yl))
+  plot.new()
+  plot.window(xlim = c(0.85, 2.15), ylim = yl)
+  ticks <- pretty(yl)
+  abline(h = ticks, col = adjustcolor("white", 0.07))
+  axis(2, at = ticks, las = 1, col = NA, cex.axis = 1.1)
+  axis(1, at = 1:2, labels = c("Round 1", "Round 2"), col = NA, cex.axis = 1.2, col.axis = COL$fg)
+  mtext("points per 3 darts", side = 2, line = 3, col = COL$muted)
+  col <- ifelse(cls$change > 0, "#4fdb8c", ifelse(cls$change < 0, "#ff7b78", COL$muted))
+  segments(1, cls$round1, 2, cls$round2, col = adjustcolor(col, 0.75), lwd = 2)
+  points(c(rep(1, nrow(cls)), rep(2, nrow(cls))), c(cls$round1, cls$round2),
+         pch = 21, bg = c(col, col), col = COL$card, cex = 1.6, lwd = 1.5)
+  m <- c(mean(cls$round1), mean(cls$round2))
+  segments(1, m[1], 2, m[2], col = COL$cream, lwd = 4)
+  points(1:2, m, pch = 21, bg = COL$cream, col = COL$card, cex = 2.3, lwd = 2)
+  text(2.06, m[2], sprintf("mean %.1f", m[2]), adj = 0, col = COL$cream, cex = 1.15, xpd = NA)
+  text(0.94, m[1], sprintf("%.1f", m[1]), adj = 1, col = COL$cream, cex = 1.15, xpd = NA)
+}
+
+# gradient bar for an expected-score matrix
+heatLegend = function(E){
+  rng <- range(E[INSIDE])
+  stops <- substr(HEAT_PAL[round(seq(1, length(HEAT_PAL), length.out = 8))], 1, 7)
+  div(class = "legend",
+      span(class = "num", sprintf("%.0f", rng[1])),
+      div(class = "bar", style = sprintf("background: linear-gradient(90deg, %s);", paste(stops, collapse = ", "))),
+      span(class = "num", sprintf("%.0f", rng[2])))
+}
+
+drawHeat = function(E, s){
+  newCanvas()
+  E[!INSIDE] <- NA
+  image(-R:R, -R:R, E, col = HEAT_PAL, add = TRUE, useRaster = TRUE)
+  drawWires(s)
+  drawNumbers(s)
+}
+
 # UI --------------------------------------------------------------------------
 
 theme <- bs_theme(
@@ -271,7 +325,51 @@ css <- paste0(":root {", paste0("--", names(COL), ": ", COL, ";", collapse = " "
   .legend { display: flex; align-items: center; gap: .6rem; font-size: .8rem; color: var(--muted); margin-top: .5rem; }
   .legend .bar { flex: 1; height: .5rem; border-radius: 999px; }
   #board { cursor: crosshair; }
+
+  .nav-underline { margin-bottom: 1rem; border-bottom: 1px solid var(--border); }
+  .nav-underline .nav-link { color: var(--muted); font-family: 'Barlow Condensed', sans-serif; font-size: 1.15rem;
+                             font-weight: 600; letter-spacing: .03em; }
+  .nav-underline .nav-link.active { color: var(--fg); border-bottom-color: var(--red); }
+  .nav-underline .nav-link:hover { color: var(--fg); }
+
+  .group-label { color: var(--cream); }
+  .stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: .75rem; margin-bottom: .75rem; }
+  .stat .value { font-family: 'Barlow Condensed', sans-serif; font-size: 2.4rem; font-weight: 600; color: var(--cream);
+                 line-height: 1.05; margin-top: .25rem; }
+  .stat .value .unit { font-family: Inter, system-ui, sans-serif; font-size: .8rem; color: var(--muted); font-weight: 400; }
+  .test-summary { margin-bottom: 1rem; }
+  .test-summary p { margin: .35rem 0 0; font-size: .95rem; }
+  .test-note { color: var(--muted); font-size: .85rem; }
+  .class-table { width: 100%; border-collapse: collapse; font-size: .95rem; }
+  .class-table th { font-size: .72rem; text-transform: uppercase; letter-spacing: .1em; color: var(--muted);
+                    font-weight: 400; padding: .4rem .5rem; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .class-table td { padding: .4rem .5rem; border-bottom: 1px solid var(--border); }
+  .class-table .r { text-align: right; font-family: 'Barlow Condensed', sans-serif; font-size: 1.1rem;
+                    font-variant-numeric: tabular-nums; }
+  .class-table .pos { color: #4fdb8c; }
+  .class-table .neg { color: #ff7b78; }
+  .class-actions { margin-top: 1rem; }
+  .empty-note { color: var(--muted); padding: 2rem 0; text-align: center; }
+  .irs--shiny .irs-bar { background: var(--red); border-color: var(--red); }
+  .irs--shiny .irs-single { background: var(--red); }
+  .modal-content { background: var(--card); border: 1px solid var(--border); }
+  .modal-header, .modal-footer { border-color: var(--border); }
+  .modal-footer .btn-default { background: var(--panel); border: 1px solid var(--border); color: var(--fg); }
 ")
+
+# class results survive a page reload (or a dropped connection) via localStorage
+storageJS <- "
+$(document).on('shiny:connected', function() {
+  var stored = null;
+  try { stored = window.localStorage.getItem('darts-class-results'); } catch(e) {}
+  Shiny.setInputValue('stored_class', stored || '', {priority: 'event'});
+});
+$(function() {
+  Shiny.addCustomMessageHandler('save_class', function(json) {
+    try { window.localStorage.setItem('darts-class-results', json); } catch(e) {}
+  });
+});
+"
 
 ui <- page_sidebar(
   title = div(class = "app-title", span(class = "dot"), "Darts", span(class = "light", "Optimiser")),
@@ -281,12 +379,14 @@ ui <- page_sidebar(
   tags$head(
     tags$link(rel = "stylesheet",
               href = "https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600&family=Inter:wght@400;500&display=swap"),
-    tags$style(HTML(css))
+    tags$style(HTML(css)),
+    tags$script(HTML(storageJS))
   ),
   sidebar = sidebar(
     width = 320,
     uiOutput("settings"),
-    div(class = "status", textOutput("status", inline = TRUE)),
+    div(span(class = "label group-label", textOutput("group_label", inline = TRUE)),
+        div(class = "status", textOutput("status", inline = TRUE))),
     div(class = "actions",
         uiOutput("controls"),
         # always in the page; its label and enabled state follow the phase
@@ -297,13 +397,48 @@ ui <- page_sidebar(
     uiOutput("scoreboard"),
     actionButton("reset", "Restart", icon = icon("arrows-rotate"), class = "btn-link btn-sm restart")
   ),
-  uiOutput("stepper"),
-  layout_columns(
-    col_widths = c(6, 6),
-    card(fill = FALSE, card_header(uiOutput("board_title", inline = TRUE)),
-         card_body(fill = FALSE, plotOutput("board", click = "plot_click", height = "auto"))),
-    card(fill = FALSE, card_header("Expected points per 3 darts ", span(class = "hint", "when aiming here (brighter = better)")),
-         card_body(fill = FALSE, plotOutput("expScore", height = "auto"), uiOutput("legend")))
+  navset_underline(
+    id = "tabs",
+    nav_panel(
+      "Board",
+      uiOutput("stepper"),
+      layout_columns(
+        col_widths = c(6, 6),
+        card(fill = FALSE, card_header(uiOutput("board_title", inline = TRUE)),
+             card_body(fill = FALSE, plotOutput("board", click = "plot_click", height = "auto"))),
+        card(fill = FALSE, card_header("Expected points per 3 darts ", span(class = "hint", "when aiming here (brighter = better)")),
+             card_body(fill = FALSE, plotOutput("expScore", height = "auto"), uiOutput("legend")))
+      )
+    ),
+    nav_panel(
+      "Class results",
+      uiOutput("class_summary"),
+      layout_columns(
+        col_widths = c(7, 5),
+        card(fill = FALSE, card_header("Round 1 vs round 2 ", span(class = "hint", "one line per group, cream = class mean")),
+             card_body(fill = FALSE, uiOutput("class_plot_ui"))),
+        card(fill = FALSE, card_header("All groups"),
+             card_body(fill = FALSE,
+                       uiOutput("class_table"),
+                       div(class = "btn-row class-actions",
+                           downloadButton("class_csv", "CSV", class = "btn-ghost btn-sm"),
+                           actionButton("class_remove", "Remove last", icon = icon("rotate-left"), class = "btn-ghost btn-sm"),
+                           actionButton("class_clear", "Clear all", icon = icon("trash"), class = "btn-ghost btn-sm"))))
+      )
+    ),
+    nav_panel(
+      "Explore",
+      layout_columns(
+        col_widths = c(6, 6),
+        card(fill = FALSE, card_header("Expected points per 3 darts ", span(class = "hint", "for a player with this spread")),
+             card_body(fill = FALSE, plotOutput("explore_plot", height = "auto"), uiOutput("explore_legend"))),
+        card(fill = FALSE, card_header("Spread"),
+             card_body(fill = FALSE,
+                       sliderInput("explore_sd", "Standard deviation of a throw (mm)", min = 5, max = 80, value = 25,
+                                   step = 1, width = "100%", animate = animationOptions(interval = 400)),
+                       uiOutput("explore_info")))
+      )
+    )
   )
 )
 
@@ -313,8 +448,34 @@ server <- function(input, output, session) {
   # phase: "aim" (set intended aim), "r1" (throwing round 1), "r1_done",
   #        "r2" (throwing round 2), "done"
   val <- reactiveValues(phase = "aim", n = 9, use_bias = TRUE, aim = AIM_PRESETS$T20,
-                        throws = emptyThrows(), frozen = NULL)
+                        throws = emptyThrows(), frozen = NULL, group = 1)
   firstPhase = function() if(val$use_bias) "aim" else "r1"
+
+  # square plots that follow the width of their card
+  plotSize = function(id) function() max(session$clientData[[paste0("output_", id, "_width")]], 100)
+  plotScale = function(id) plotSize(id)() / 520
+
+  # class results: one row per finished group, kept across restarts
+  classResults <- reactiveVal(emptyClass())
+  classRestored <- reactiveVal(FALSE)
+  nextGroup = function() max(c(0, classResults()$group)) + 1
+
+  recordGroup = function(){
+    r1 <- roundThrows(1)$score
+    r2 <- roundThrows(2)$score
+    row <- data.frame(group = val$group, darts = val$n, round1 = 3 * mean(r1), round2 = 3 * mean(r2),
+                      change = 3 * (mean(r2) - mean(r1)),
+                      optimal_aim = labelThrow(val$frozen$target[1], val$frozen$target[2]),
+                      bias = val$use_bias)
+    d <- classResults()
+    d <- rbind(d[d$group != val$group, ], row)
+    classResults(d[order(d$group), ])
+  }
+
+  unrecordGroup = function(){
+    d <- classResults()
+    classResults(d[d$group != val$group, ])
+  }
 
   currentRound = reactive(if(val$phase %in% c("aim", "r1", "r1_done")) 1 else 2)
   roundThrows = function(k) val$throws[val$throws$round == k, ]
@@ -327,7 +488,10 @@ server <- function(input, output, session) {
     val$throws <- rbind(val$throws,
                         data.frame(round = k, x = x, y = y, located = located,
                                    score = score, label = label))
-    if(nrow(roundThrows(k)) >= val$n) val$phase <- if(k == 1) "r1_done" else "done"
+    if(nrow(roundThrows(k)) >= val$n){
+      val$phase <- if(k == 1) "r1_done" else "done"
+      if(k == 2) recordGroup()
+    }
   }
 
   # settings: editable until the first throw, then locked
@@ -377,10 +541,14 @@ server <- function(input, output, session) {
     }
     val$throws <- val$throws[-max(idx), ]
     if(val$phase == "r1_done") val$phase <- "r1"
-    if(val$phase == "done") val$phase <- "r2"
+    if(val$phase == "done"){
+      val$phase <- "r2"
+      unrecordGroup()
+    }
   })
 
   restart = function(){
+    val$group <- nextGroup()
     val$phase <- firstPhase()
     val$aim <- AIM_PRESETS$T20
     val$throws <- emptyThrows()
@@ -468,7 +636,16 @@ server <- function(input, output, session) {
       badge <- span(class = paste("delta", if(diff >= 0) "pos" else "neg"),
                     sprintf("%+.1f", diff))
     }
-    roundBox(2, "Round 2 \u00b7 optimal aim", badge)
+    box <- roundBox(2, "Round 2 \u00b7 optimal aim", badge)
+    if(val$phase == "done"){
+      tt <- safeTest(roundThrows(2)$score, roundThrows(1)$score)
+      if(!is.null(tt)){
+        box <- tagAppendChild(box, div(class = "score-meta",
+          sprintf("t-test on single darts: %s. ", formatP(tt$p.value)),
+          if(tt$p.value < 0.05) "Unlikely to be luck alone." else "Could still be luck."))
+      }
+    }
+    box
   }
 
   expectedBox = function(){
@@ -499,7 +676,148 @@ server <- function(input, output, session) {
   # one output for all cards, so hidden cards leave no gaps in the sidebar
   output$scoreboard <- renderUI({
     div(class = "scoreboard",
-        if(val$phase != "aim") roundBox(1, "Round 1 \u00b7 usual aim"), round2Box(), expectedBox())
+        if(val$phase != "aim") roundBox(1, "Round 1 \u00b7 usual aim"), round2Box(), expectedBox(), classBox())
+  })
+
+  # Class results -------------------------------------------------------------
+
+  # restore results saved in this browser (after a reload or dropped connection)
+  observeEvent(input$stored_class, {
+    if(!classRestored() && nzchar(input$stored_class) && nrow(classResults()) == 0){
+      d <- tryCatch(as.data.frame(jsonlite::fromJSON(input$stored_class)), error = function(e) NULL)
+      if(!is.null(d) && nrow(d) > 0 && all(names(emptyClass()) %in% names(d))){
+        classResults(d[, names(emptyClass())])
+        if(nrow(val$throws) == 0) val$group <- nextGroup()
+      }
+    }
+    classRestored(TRUE)
+  })
+
+  observe({
+    d <- classResults()
+    req(classRestored())
+    session$sendCustomMessage("save_class", as.character(jsonlite::toJSON(d)))
+  })
+
+  output$group_label <- renderText(sprintf("Group %d", val$group))
+
+  classBox = function(){
+    d <- classResults()
+    if(nrow(d) == 0) return()
+    div(class = "score-card",
+        div(class = "score-head", span(class = "label", sprintf("Class \u00b7 %d group%s", nrow(d), if(nrow(d) == 1) "" else "s")),
+            span(class = paste("delta", if(mean(d$change) >= 0) "pos" else "neg"), sprintf("%+.1f", mean(d$change)))),
+        div(class = "score-meta", sprintf("Mean per 3 darts: %.1f \u2192 %.1f", mean(d$round1), mean(d$round2))))
+  }
+
+  output$class_summary <- renderUI({
+    d <- classResults()
+    if(nrow(d) == 0) return(div(class = "empty-note", "No groups yet: results appear here when a group finishes round 2."))
+    tt <- safeTest(d$round2, d$round1, paired = TRUE)
+    stat = function(label, value, unit = NULL) div(class = "score-card stat", span(class = "label", label),
+                                                     div(class = "value", value, if(!is.null(unit)) span(class = "unit", unit)))
+    tagList(
+      div(class = "stat-row",
+          stat("Groups", nrow(d)),
+          stat("Round 1", sprintf("%.1f", mean(d$round1)), " per 3 darts"),
+          stat("Round 2", sprintf("%.1f", mean(d$round2)), " per 3 darts"),
+          stat("Mean change", sprintf("%+.1f", mean(d$change)),
+               if(!is.null(tt)) sprintf(" 95%% CI %+.1f to %+.1f", tt$conf.int[1], tt$conf.int[2]))),
+      div(class = "score-card test-summary",
+          span(class = "label", "Paired t-test, round 2 vs round 1"),
+          if(is.null(tt)){
+            p(class = "test-note", "Needs at least 2 groups (with differing changes).")
+          } else {
+            tagList(
+              p(sprintf("t(%d) = %.2f, %s (two-sided). ", as.integer(tt$parameter), tt$statistic, formatP(tt$p.value)),
+                if(tt$p.value < 0.05) "The change is unlikely to be due to chance alone."
+                else "With this many groups, the change could still be due to chance."),
+              p(class = "test-note", "Each group contributes one pair: its average per 3 darts in round 1 and round 2."))
+          })
+    )
+  })
+
+  output$class_plot_ui <- renderUI({
+    if(nrow(classResults()) == 0) return(div(class = "empty-note", "The chart appears after the first group."))
+    plotOutput("class_plot", height = "380px")
+  })
+
+  output$class_plot <- renderPlot({
+    d <- classResults()
+    req(nrow(d) > 0)
+    drawSlopes(d)
+  }, bg = "transparent")
+
+  output$class_table <- renderUI({
+    d <- classResults()
+    if(nrow(d) == 0) return(NULL)
+    tags$table(class = "class-table",
+               tags$thead(tags$tr(tags$th("Group"), tags$th(class = "r", "Darts"), tags$th(class = "r", "Round 1"),
+                                  tags$th(class = "r", "Round 2"), tags$th(class = "r", "Change"), tags$th("Target"))),
+               tags$tbody(lapply(seq_len(nrow(d)), function(i){
+                 tags$tr(tags$td(d$group[i]), tags$td(class = "r", d$darts[i]),
+                         tags$td(class = "r", sprintf("%.1f", d$round1[i])), tags$td(class = "r", sprintf("%.1f", d$round2[i])),
+                         tags$td(class = paste("r", if(d$change[i] > 0) "pos" else if(d$change[i] < 0) "neg"),
+                                 sprintf("%+.1f", d$change[i])),
+                         tags$td(d$optimal_aim[i]))
+               })))
+  })
+
+  output$class_csv <- downloadHandler(
+    filename = function() sprintf("darts-class-results-%s.csv", format(Sys.Date())),
+    content = function(file) write.csv(classResults(), file, row.names = FALSE)
+  )
+
+  observeEvent(input$class_remove, {
+    d <- classResults()
+    if(nrow(d) > 0) classResults(d[-nrow(d), ])
+  })
+
+  observeEvent(input$class_clear, {
+    n <- nrow(classResults())
+    if(n == 0) return()
+    showModal(modalDialog(
+      title = "Clear class results?",
+      sprintf("This deletes the results of all %d group%s. Download the CSV first if you want to keep them.", n, if(n == 1) "" else "s"),
+      footer = tagList(modalButton("Cancel"), actionButton("class_clear_ok", "Delete all", class = "btn-primary")),
+      easyClose = TRUE))
+  })
+
+  observeEvent(input$class_clear_ok, {
+    classResults(emptyClass())
+    val$group <- 1
+    removeModal()
+  })
+
+  # Explore -------------------------------------------------------------------
+
+  exploreHeat <- bindCache(reactive({
+    sd <- input$explore_sd
+    E <- expScores(diag(c(sd, sd)^2))
+    best <- which(E == max(E), arr.ind = TRUE)[1, ]
+    list(E = E, target = unname(best) - (R + 1))
+  }), input$explore_sd)
+
+  output$explore_plot <- renderPlot({
+    h <- exploreHeat()
+    s <- plotScale("explore_plot")
+    drawHeat(h$E, s)
+    drawTarget(h$target, s)
+  }, height = plotSize("explore_plot"), width = plotSize("explore_plot"), bg = "transparent")
+
+  output$explore_legend <- renderUI(heatLegend(exploreHeat()$E))
+
+  output$explore_info <- renderUI({
+    h <- exploreHeat()
+    sd <- input$explore_sd
+    div(class = "score-card",
+        span(class = "label", "Expected per 3 darts"),
+        div(class = "exp-row", sprintf("Optimal aim (%s)", labelThrow(h$target[1], h$target[2])),
+            span(class = "num", sprintf("%.1f", max(h$E)))),
+        div(class = "exp-row", "Aiming at T20", span(class = "num", sprintf("%.1f", atPoint(h$E, AIM_PRESETS$T20)))),
+        div(class = "exp-row", "Aiming at the bull", span(class = "num", sprintf("%.1f", atPoint(h$E, AIM_PRESETS$Bull)))),
+        div(class = "score-meta",
+            sprintf("About 86%% of darts land within %.0f mm of the aim (2 standard deviations). Press play to sweep through all spreads.", 2 * sd)))
   })
 
   # Main panel ----------------------------------------------------------------
@@ -520,9 +838,6 @@ server <- function(input, output, session) {
                    sprintf("aim at the marked target (%s)", labelThrow(val$frozen$target[1], val$frozen$target[2])))
     tagList("Board ", span(class = "hint", hint))
   })
-
-  plotSize = function(id) function() max(session$clientData[[paste0("output_", id, "_width")]], 100)
-  plotScale = function(id) plotSize(id)() / 520
 
   output$board <- renderPlot({
     s <- plotScale("board")
@@ -545,19 +860,15 @@ server <- function(input, output, session) {
 
   output$expScore <- renderPlot({
     s <- plotScale("expScore")
-    newCanvas()
     h <- heat()
     if(is.null(h)){
+      newCanvas()
       drawWires(s, alpha = 0.12)
       drawNumbers(s)
       text(0, 0, "Heatmap appears after 3 darts", col = COL$muted, cex = 1.3 * s)
       return()
     }
-    E <- h$E
-    E[!INSIDE] <- NA
-    image(-R:R, -R:R, E, col = HEAT_PAL, add = TRUE, useRaster = TRUE)
-    drawWires(s)
-    drawNumbers(s)
+    drawHeat(h$E, s)
     if(!is.null(h$aim)) drawAim(h$aim, s)
     drawTarget(h$target, s)
   }, height = plotSize("expScore"), width = plotSize("expScore"), bg = "transparent")
@@ -565,12 +876,7 @@ server <- function(input, output, session) {
   output$legend <- renderUI({
     h <- heat()
     if(is.null(h)) return()
-    rng <- range(h$E[INSIDE])
-    stops <- substr(HEAT_PAL[round(seq(1, length(HEAT_PAL), length.out = 8))], 1, 7)
-    div(class = "legend",
-        span(class = "num", sprintf("%.0f", rng[1])),
-        div(class = "bar", style = sprintf("background: linear-gradient(90deg, %s);", paste(stops, collapse = ", "))),
-        span(class = "num", sprintf("%.0f", rng[2])))
+    heatLegend(h$E)
   })
 }
 
